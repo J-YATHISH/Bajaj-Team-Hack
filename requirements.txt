@@ -16,3 +16,4 @@ openai
 typing-extensions
 colorama
 torch
+fastapi
