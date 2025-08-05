@@ -10,6 +10,7 @@ logger = get_logger()
 
 def handle_query(document_url: str, questions: list) -> list:
     logger.info(f"Processing document: {document_url}")
+    
     path = download_file_from_url(document_url)
     pages = parse_pdf(path)
     logger.info(f"Loaded {len(pages)} pages from document.")
@@ -25,10 +26,14 @@ def handle_query(document_url: str, questions: list) -> list:
     answers = []
     for q in questions:
         try:
-            answer = qa_chain.invoke({"query": q})  # updated from run() to invoke()
-            logger.info(f"Q: {q} => A: {answer}")
-            answers.append(answer)
+            raw_answer = qa_chain.invoke({"query": q})
+            logger.info(f"Raw LLM response: {raw_answer}")
+
+            # Extract summary using the same LLM, reduce to one line
+            concise = llm.invoke(f"Summarize in one line: {raw_answer['result']}")
+            answers.append(concise.content.strip())
         except Exception as e:
             logger.error(f"Error answering question: {q} | {str(e)}")
             answers.append("Could not answer this question.")
+    
     return answers
