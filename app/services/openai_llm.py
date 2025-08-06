@@ -5,10 +5,10 @@ import os
 logger = get_logger()
 
 def get_llm():
-    logger.info("Initializing OpenRouter LLM: mistralai/devstral-small-2505")
+    logger.info("Initializing OpenRouter LLM: qwen/qwen-2.5-72b-instruct")
     return ChatOpenAI(
         openai_api_key=os.getenv("OPENROUTER_API_KEY"),
         openai_api_base="https://openrouter.ai/api/v1",
-        model="mistralai/devstral-small-2505",
+        model="qwen/qwen-2.5-72b-instruct",
         temperature=0
     )
