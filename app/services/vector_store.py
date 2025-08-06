@@ -7,7 +7,7 @@ import os
 logger = get_logger()
 CHROMA_DIR = "chroma_db"
 
-def get_vectorstore(pages: list, embedding_model, source_url: str):
+def get_vectorstore(pages: list, embedding_model, source_url: str=None):
     if os.path.exists(CHROMA_DIR) and os.listdir(CHROMA_DIR):
         logger.info("Vectorstore found. Loading from disk.")
         return Chroma(persist_directory=CHROMA_DIR, embedding_function=embedding_model)
