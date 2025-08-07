@@ -1,39 +1,48 @@
 from app.utils.logger import get_logger
 from app.utils.pdf_parser import parse_pdf
 from app.utils.downloader import download_file_from_url
-from app.services.embeddings import get_embedding_model
 from app.services.vector_store import get_vectorstore
-from app.services.openai_llm import get_llm
-from langchain.chains import RetrievalQA
+from langchain.docstore.document import Document
+from app.main import get_components, DEFAULT_DOC_URL
 
 logger = get_logger()
 
 def handle_query(document_url: str, questions: list) -> list:
     logger.info(f"Processing document: {document_url}")
-    
-    path = download_file_from_url(document_url)
-    pages = parse_pdf(path)
-    logger.info(f"Loaded {len(pages)} pages from document.")
 
-    embeddings = get_embedding_model()
-    vectordb = get_vectorstore(pages, embeddings)
+    # Load preloaded models/vectorstore
+    embedding_model, llm, preloaded_vectorstore = get_components()
 
-    logger.info("Loading LLM...")
-    llm = get_llm()
-    logger.info("Creating RetrievalQA chain")
-    qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=vectordb.as_retriever())
+    # Use preloaded vectorstore for default document
+    if document_url == DEFAULT_DOC_URL and preloaded_vectorstore is not None:
+        vectordb = preloaded_vectorstore
+        logger.info("✅ Using preloaded vectorstore from memory.")
+    else:
+        logger.info("📄 Downloading and creating vectorstore for new document...")
+        path = download_file_from_url(document_url)
+        pages = parse_pdf(path)
+        vectordb = get_vectorstore(pages, embedding_model, source_url=document_url)
+        logger.info("✅ New vectorstore created.")
 
     answers = []
     for q in questions:
         try:
-            raw_answer = qa_chain.invoke({"query": q})
-            logger.info(f"Raw LLM response: {raw_answer}")
+            docs: list[Document] = vectordb.similarity_search(q, k=3)
+            context = "\n\n".join([doc.page_content for doc in docs])
 
-            # Extract summary using the same LLM, reduce to one line
-            concise = llm.invoke(f"Summarize in one line: {raw_answer['result']}")
-            answers.append(concise.content.strip())
+            prompt = f"""Answer the question in one line using the context below:
+Context:
+{context}
+
+Question: {q}
+Answer:"""
+
+            response = llm.invoke(prompt)
+            answer = response.content.strip()
+            logger.info(f"Q: {q} | A: {answer}")
+            answers.append(answer)
         except Exception as e:
             logger.error(f"Error answering question: {q} | {str(e)}")
             answers.append("Could not answer this question.")
-    
+
     return answers
