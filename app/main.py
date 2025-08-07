@@ -8,7 +8,7 @@ from app.services.embeddings import get_embedding_model
 from app.services.vector_store import get_vectorstore
 from app.services.openai_llm import get_llm
 
-# Load environment variables
+# Load environment variables from .env
 load_dotenv()
 
 # Logger
@@ -21,46 +21,55 @@ DEFAULT_DOC_URL = (
     "sig=N4a9OU0w0QXO6AOIBiu4bpl7AXvEZogeT%2FjUHNO7HzQ%3D"
 )
 
-# Global shared components (populated at startup)
-embedding_model = None
-llm = None
-vectorstore = None
+# Global shared state
+_shared_components = {
+    "embedding_model": None,
+    "llm": None,
+    "vectorstore": None,
+}
 
-# FastAPI instance
+# FastAPI app
 app = FastAPI(
     title="HackRx PDF QA System",
     version="1.0.0"
 )
 
-# Return shared components safely to other modules (query_handler etc.)
+# Getter function for shared components
 def get_components():
-    return embedding_model, llm, vectorstore
+    return (
+        _shared_components["embedding_model"],
+        _shared_components["llm"],
+        _shared_components["vectorstore"],
+    )
 
-# Startup event: load models and vectorstore
+# Startup initialization
 @app.on_event("startup")
 def preload_models_and_vectorstore():
-    global embedding_model, llm, vectorstore
     try:
         logger.info("🔄 Preloading embedding model and LLM...")
-        embedding_model = get_embedding_model()
-        llm = get_llm()
+        _shared_components["embedding_model"] = get_embedding_model()
+        _shared_components["llm"] = get_llm()
         logger.info("✅ Models loaded.")
 
         logger.info("📄 Preloading vectorstore for default document...")
         path = download_file_from_url(DEFAULT_DOC_URL)
         pages = parse_pdf(path)
-        vectorstore = get_vectorstore(pages, embedding_model, source_url=DEFAULT_DOC_URL)
+        _shared_components["vectorstore"] = get_vectorstore(
+            pages, _shared_components["embedding_model"], source_url=DEFAULT_DOC_URL
+        )
         logger.info("✅ Vectorstore loaded.")
-
-    except Exception as e:
-        logger.exception("❌ Error during startup model/vectorstore preload")
+    except Exception:
+        logger.exception("❌ Error during startup preload")
 
 # Include API routes
 app.include_router(router, prefix="/api/v1")
 
-# Basic root route (GET, HEAD)
+# Health check route
 @app.api_route("/", methods=["GET", "HEAD"])
 def read_root():
     return {
         "message": "✅ HackRx PDF QA system is running. Use POST /api/v1/hackrx/run to ask questions."
     }
+
+# Export constants (e.g., for query_handler)
+__all__ = ["app", "get_components", "DEFAULT_DOC_URL"]
