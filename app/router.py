@@ -18,24 +18,31 @@ TEAM_TOKEN = os.getenv("TEAM_TOKEN")
 # Security scheme
 security = HTTPBearer()
 
-@router.api_route("/run", methods=["GET", "POST"])
+@router.get("/run")
+async def get_status():
+    """
+    Public GET endpoint to check if the API is up.
+    """
+    return {
+        "message": "✅ HackRx PDF QA system is ready. Send a POST request to this endpoint with 'documents' and 'questions' in the JSON body to get answers."
+    }
+
+@router.post("/run")
 async def run_query(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ):
-    # Optional: log token (disable in production)
-    print("TEAM_TOKEN from .env:", TEAM_TOKEN)
-    print("Authorization header:", credentials.credentials)
+    """
+    Authenticated POST endpoint for answering questions from a PDF document.
+    Requires: Authorization header (Bearer token), JSON body with 'documents' and 'questions'.
+    """
+    # Optional: log token for debugging (disable in production)
+    logger.info(f"TEAM_TOKEN from .env: {TEAM_TOKEN}")
+    logger.info(f"Authorization header: {credentials.credentials}")
 
     if credentials.credentials != TEAM_TOKEN:
         raise HTTPException(status_code=403, detail="Invalid token")
 
-    if request.method == "GET":
-        return {
-            "message": "✅ HackRx PDF QA system is ready. Send a POST request to this endpoint with 'documents' and 'questions' in the JSON body to get answers."
-        }
-
-    # POST request
     body = await request.json()
     document_url = body.get("documents")
     questions = body.get("questions", [])
