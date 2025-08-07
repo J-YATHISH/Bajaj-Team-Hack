@@ -31,4 +31,4 @@ def preload_components():
     logger.info("✅ Vectorstore for default document ready.")
 
 def get_components():
-    return embedding_model, llm, vectorstore, DEFAULT_DOC_URL
+    return embedding_model, llm, vectorstore
